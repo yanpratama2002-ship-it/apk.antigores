@@ -1,0 +1,737 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pencari & Pemeta Persamaan Anti Gores HP</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Tesseract.js for OCR -->
+    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .glass-card {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(229, 231, 235, 0.8);
+        }
+    </style>
+</head>
+<body class="bg-slate-100 text-slate-800 min-h-screen flex flex-col">
+
+    <header class="bg-indigo-700 text-white shadow-md">
+        <div class="max-w-4xl mx-auto px-4 py-4 flex flex-col sm:flex-row justify-between items-center gap-3">
+            <div class="flex items-center gap-3">
+                <div class="p-2.5 bg-indigo-600 rounded-xl shadow-inner">
+                    <i class="fa-solid font-bold fa-mobile-screen-button text-2xl text-indigo-200"></i>
+                </div>
+                <div>
+                    <h1 class="text-xl font-bold tracking-tight">AntiGores Matcher</h1>
+                    <p class="text-xs text-indigo-200">Sistem Deteksi & Persamaan Screen Protector</p>
+                </div>
+            </div>
+            <div class="flex items-center gap-2 text-xs bg-indigo-800/60 px-3 py-1.5 rounded-full border border-indigo-500/30">
+                <i class="fa-solid fa-database text-emerald-400"></i>
+                <span id="total-db-count">0 Grup Persamaan</span>
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-4xl mx-auto px-4 py-6 flex-grow w-full">
+        <div class="flex bg-slate-200/80 p-1 rounded-xl mb-6 shadow-inner text-sm font-medium">
+            <button id="tab-btn-search" onclick="switchTab('search')" class="flex-1 py-2.5 px-3 rounded-lg flex items-center justify-center gap-2 transition-all bg-white text-indigo-700 shadow-sm font-semibold">
+                <i class="fa-solid fa-magnifying-glass"></i>
+                <span>Pencarian</span>
+            </button>
+            <button id="tab-btn-input" onclick="switchTab('input')" class="flex-1 py-2.5 px-3 rounded-lg flex items-center justify-center gap-2 transition-all text-slate-600 hover:text-slate-900">
+                <i class="fa-solid fa-camera"></i>
+                <span>Scan / Input Data</span>
+            </button>
+            <button id="tab-btn-manage" onclick="switchTab('manage')" class="flex-1 py-2.5 px-3 rounded-lg flex items-center justify-center gap-2 transition-all text-slate-600 hover:text-slate-900">
+                <i class="fa-solid fa-list-check"></i>
+                <span>Data & Export</span>
+            </button>
+        </div>
+
+        <section id="tab-search" class="space-y-6">
+            <div class="glass-card rounded-2xl p-5 sm:p-6 shadow-sm border">
+                <label for="search-input" class="block text-sm font-semibold text-slate-700 mb-2">Cari Persamaan Tipe HP</label>
+                <div class="relative">
+                    <input type="text" id="search-input" onkeyup="handleSearchKeyup(event)" placeholder="Contoh: SAM A52S, SM A51, IP 11, OP A9 2020..." class="w-full pl-11 pr-24 py-3.5 bg-slate-50 border border-slate-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all text-slate-800 font-medium">
+                    <div class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                        <i class="fa-solid fa-magnifying-glass text-lg"></i>
+                    </div>
+                    <button onclick="performSearch()" class="absolute right-2 top-2 bottom-2 px-4 bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white font-medium text-sm rounded-lg transition-colors flex items-center gap-1.5 shadow-sm">
+                        <span>Cari</span>
+                    </button>
+                </div>
+                <div class="mt-3 flex flex-wrap gap-2 text-xs text-slate-500">
+                    <span class="font-medium text-slate-600">Saran pencarian:</span>
+                    <button onclick="quickSearch('SAM A52S')" class="bg-slate-200 hover:bg-slate-300 px-2 py-0.5 rounded text-slate-700">SAM A52S</button>
+                    <button onclick="quickSearch('SM A51')" class="bg-slate-200 hover:bg-slate-300 px-2 py-0.5 rounded text-slate-700">SM A51</button>
+                    <button onclick="quickSearch('OP A9 2020')" class="bg-slate-200 hover:bg-slate-300 px-2 py-0.5 rounded text-slate-700">OP A9 2020</button>
+                    <button onclick="quickSearch('IP 11')" class="bg-slate-200 hover:bg-slate-300 px-2 py-0.5 rounded text-slate-700">IP 11</button>
+                </div>
+            </div>
+
+            <!-- Search Results Area -->
+            <div id="search-results-container" class="space-y-4">
+                <div class="text-center py-12 text-slate-400 bg-white rounded-2xl border border-dashed border-slate-300">
+                    <i class="fa-solid fa-arrows-split-up-and-left text-4xl mb-3 text-slate-300"></i>
+                    <p class="text-sm">Masukkan kata kunci tipe HP untuk melihat daftar persamaan anti goresnya.</p>
+                </div>
+            </div>
+        </section>
+
+        <section id="tab-input" class="hidden space-y-6">
+            <!-- OCR Camera / Image Upload Block -->
+            <div class="glass-card rounded-2xl p-5 sm:p-6 shadow-sm border">
+                <div class="flex items-center justify-between mb-4">
+                    <h2 class="text-base font-bold text-slate-800 flex items-center gap-2">
+                        <i class="fa-solid fa-camera text-indigo-600"></i> Scan Kemasan Anti Gores (OCR)
+                    </h2>
+                    <span class="text-xs bg-indigo-50 text-indigo-700 px-2.5 py-1 rounded-full font-medium border border-indigo-100">Otomatis Ekstrak</span>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
+                    <!-- File input / Dropzone -->
+                    <div class="border-2 border-dashed border-slate-300 hover:border-indigo-500 rounded-xl p-4 text-center cursor-pointer transition-colors bg-slate-50 flex flex-col items-center justify-center min-h-[160px] relative" id="drop-zone">
+                        <input type="file" id="ocr-file-input" accept="image/*" capture="environment" onchange="handleImageUpload(event)" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer">
+                        <i class="fa-solid fa-cloud-arrow-up text-3xl text-indigo-500 mb-2"></i>
+                        <p class="text-xs font-semibold text-slate-700 mb-1">Ambil Foto Kemasan / Upload Gambar</p>
+                        <p class="text-[11px] text-slate-500">Klik atau geser foto sticker label anti gores ke sini</p>
+                    </div>
+
+                    <!-- Image Preview & Status -->
+                    <div class="bg-slate-50 rounded-xl p-3 border border-slate-200 flex flex-col items-center justify-center min-h-[160px]">
+                        <div id="image-preview-container" class="hidden w-full flex flex-col items-center">
+                            <img id="image-preview" src="" alt="Preview Stiker" class="max-h-36 rounded border border-slate-300 object-contain mb-2">
+                            <p id="ocr-status-text" class="text-xs font-medium text-slate-600">Memproses OCR...</p>
+                        </div>
+                        <div id="image-preview-placeholder" class="text-center text-slate-400 py-6">
+                            <i class="fa-regular fa-image text-3xl mb-1"></i>
+                            <p class="text-xs">Foto akan ditampilkan di sini</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- OCR Progress Indicator -->
+                <div id="ocr-progress-container" class="hidden mt-4">
+                    <div class="flex justify-between text-xs font-medium text-slate-600 mb-1">
+                        <span id="ocr-step-name">Membaca teks...</span>
+                        <span id="ocr-percent">0%</span>
+                    </div>
+                    <div class="w-full bg-slate-200 rounded-full h-2 overflow-hidden">
+                        <div id="ocr-progress-bar" class="bg-indigo-600 h-2 rounded-full transition-all duration-300 w-0"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Manual Input Form -->
+            <div class="glass-card rounded-2xl p-5 sm:p-6 shadow-sm border">
+                <h2 class="text-base font-bold text-slate-800 mb-4 flex items-center gap-2">
+                    <i class="fa-solid fa-pen-to-square text-indigo-600"></i> Form Tambah Data Persamaan
+                </h2>
+                
+                <form id="input-form" onsubmit="saveDataEntry(event)" class="space-y-4">
+                    <div>
+                        <label for="input-main-type" class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">Tipe Utama HP (Kolom 1)</label>
+                        <input type="text" id="input-main-type" required placeholder="Contoh: SAM A51" class="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none text-slate-800 font-medium text-sm">
+                        <p class="text-[11px] text-slate-500 mt-1">Gunakan singkatan merek seperti SAM, SM, IP, OP, MI, RM, RL, INF, VV jika ada.</p>
+                    </div>
+
+                    <div>
+                        <label for="input-compat-types" class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">Persamaan Tipe HP Lainnya (Kolom 2)</label>
+                        <textarea id="input-compat-types" rows="3" required placeholder="Contoh: A52, A52S, A53-5G, S20 FE, M31S" class="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none text-slate-800 font-medium text-sm"></textarea>
+                        <p class="text-[11px] text-slate-500 mt-1">Pisahkan tiap tipe HP menggunakan tanda garis miring (/), koma (,), atau spasi.</p>
+                    </div>
+
+                    <div class="pt-2 flex justify-end gap-2">
+                        <button type="button" onclick="clearInputForm()" class="px-4 py-2 border border-slate-300 text-slate-600 hover:bg-slate-100 rounded-lg text-sm font-medium transition-colors">
+                            Bersihkan
+                        </button>
+                        <button type="submit" class="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white rounded-lg text-sm font-medium shadow-sm transition-colors flex items-center gap-1.5">
+                            <i class="fa-solid fa-floppy-disk"></i>
+                            <span>Simpan Data Persamaan</span>
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </section>
+
+        <section id="tab-manage" class="hidden space-y-6">
+            <div class="glass-card rounded-2xl p-5 sm:p-6 shadow-sm border">
+                <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-5">
+                    <div>
+                        <h2 class="text-base font-bold text-slate-800">Database Persamaan Anti Gores</h2>
+                        <p class="text-xs text-slate-500">Seluruh kelompok persamaan yang tersimpan di memori lokal (localStorage)</p>
+                    </div>
+                    <div class="flex flex-wrap gap-2">
+                        <button onclick="exportDataToTxt()" class="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold shadow-sm transition-colors flex items-center gap-1.5">
+                            <i class="fa-solid fa-file-arrow-down"></i>
+                            <span>Export (.txt)</span>
+                        </button>
+                        <button onclick="resetDataToDefault()" class="px-3 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-lg text-xs font-semibold transition-colors flex items-center gap-1">
+                            <i class="fa-solid fa-rotate-left"></i>
+                            <span>Reset Preset</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Database Table List -->
+                <div class="overflow-x-auto rounded-xl border border-slate-200">
+                    <table class="w-full text-left text-sm">
+                        <thead class="bg-slate-100 text-slate-600 uppercase text-[11px] font-bold border-b border-slate-200">
+                            <tr>
+                                <th class="py-3 px-4">#</th>
+                                <th class="py-3 px-4">Tipe Utama</th>
+                                <th class="py-3 px-4">Seluruh Tipe Dalam Grup Persamaan</th>
+                                <th class="py-3 px-4 text-center">Aksi</th>
+                            </tr>
+                        </thead>
+                        <tbody id="database-table-body" class="divide-y divide-slate-200 bg-white">
+                            <!-- Populated dynamically -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <div id="toast-container" class="fixed bottom-5 right-5 z-50 flex flex-col gap-2 pointer-events-none"></div>
+
+    <script>
+        const STORAGE_KEY = 'ANTIGORES_MATCH_DB_V1';
+
+        // Brand Aliases Configuration
+        const BRAND_ALIASES = [
+            { canonical: 'SAM', aliases: ['SAM', 'SM', 'SAMSUNG'] },
+            { canonical: 'IP', aliases: ['IP', 'IPHONE', 'APPLE'] },
+            { canonical: 'MI', aliases: ['MI', 'XIAOMI', 'RM', 'REDMI'] },
+            { canonical: 'OP', aliases: ['OP', 'OPPO'] },
+            { canonical: 'RL', aliases: ['RL', 'REALME'] },
+            { canonical: 'INF', aliases: ['INF', 'INFINIX'] },
+            { canonical: 'VV', aliases: ['VV', 'VIVO'] }
+        ];
+
+        // Anti Glass noise words to filter out during OCR
+        const NOISE_WORDS = [
+            'bintang', 'premium', 'glass', 'privacy', 'matte', 'tempered', 'screen', 
+            'protector', '9h', 'ceramic', 'super', 'hd', 'clear', 'full', 'glue', 
+            'curved', 'pro', 'max', 'plus', 'front', 'back', 'd3d', '5d', '9d', '11d', 
+            '21d', '99d', 'original', 'anti', 'gores', 'spy'
+        ];
+
+        // Preset initial sample data
+        const PRESET_DATABASE = [
+            {
+                id: 'group_1',
+                mainType: 'SAM A51',
+                items: ['SAM A51', 'A52', 'A52S', 'A53-5G', 'S20 FE', 'M31S']
+            },
+            {
+                id: 'group_2',
+                mainType: 'OP A9 2020',
+                items: ['OP A9 2020', 'OP A5 2020', 'VV Y30', 'VV Y50', 'RL 5i']
+            },
+            {
+                id: 'group_3',
+                mainType: 'IP 11',
+                items: ['IP 11', 'IP XR']
+            },
+            {
+                id: 'group_4',
+                mainType: 'INF HOT 10',
+                items: ['INF HOT 10', 'INF HOT 10S', 'RM 9C']
+            }
+        ];
+
+        let appData = [];
+
+        window.addEventListener('DOMContentLoaded', () => {
+            loadDatabase();
+            updateTotalBadge();
+            renderSearchResults('');
+        });
+
+        function loadDatabase() {
+            const raw = localStorage.getItem(STORAGE_KEY);
+            if (!raw) {
+                appData = JSON.parse(JSON.stringify(PRESET_DATABASE));
+                saveDatabase();
+            } else {
+                try {
+                    appData = JSON.parse(raw);
+                } catch (e) {
+                    appData = JSON.parse(JSON.stringify(PRESET_DATABASE));
+                }
+            }
+        }
+
+        function saveDatabase() {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(appData));
+            updateTotalBadge();
+        }
+
+        function updateTotalBadge() {
+            document.getElementById('total-db-count').innerText = `${appData.length} Grup Persamaan`;
+        }
+
+        function switchTab(tabName) {
+            const tabs = ['search', 'input', 'manage'];
+            tabs.forEach(t => {
+                const sec = document.getElementById(`tab-${t}`);
+                const btn = document.getElementById(`tab-btn-${t}`);
+                if (t === tabName) {
+                    sec.classList.remove('hidden');
+                    btn.className = 'flex-1 py-2.5 px-3 rounded-lg flex items-center justify-center gap-2 transition-all bg-white text-indigo-700 shadow-sm font-semibold';
+                } else {
+                    sec.classList.add('hidden');
+                    btn.className = 'flex-1 py-2.5 px-3 rounded-lg flex items-center justify-center gap-2 transition-all text-slate-600 hover:text-slate-900';
+                }
+            });
+
+            if (tabName === 'manage') {
+                renderManageTable();
+            }
+        }
+
+        function normalizeString(str) {
+            return str ? str.toUpperCase().trim() : '';
+        }
+
+        // Expand/Standardize model queries (e.g. "sam a52s" -> Brand: "SAM", Model: "A52S")
+        function parseBrandAndModel(text) {
+            let clean = normalizeString(text);
+            
+            // Check brand prefix matches
+            for (let b of BRAND_ALIASES) {
+                for (let alias of b.aliases) {
+                    const regex = new RegExp(`^\\b${alias}\\b\\s*`, 'i');
+                    if (regex.test(clean)) {
+                        const modelPart = clean.replace(regex, '').trim();
+                        return { brand: b.canonical, model: modelPart, raw: clean };
+                    }
+                }
+            }
+            return { brand: null, model: clean, raw: clean };
+        }
+
+        function handleSearchKeyup(e) {
+            if (e.key === 'Enter') {
+                performSearch();
+            } else {
+                // Real-time dynamic search on typing
+                performSearch();
+            }
+        }
+
+        function quickSearch(term) {
+            document.getElementById('search-input').value = term;
+            performSearch();
+        }
+
+        function performSearch() {
+            const query = document.getElementById('search-input').value.trim();
+            renderSearchResults(query);
+        }
+
+        function renderSearchResults(query) {
+            const container = document.getElementById('search-results-container');
+            
+            if (!query) {
+                container.innerHTML = `
+                    <div class="text-center py-12 text-slate-400 bg-white rounded-2xl border border-dashed border-slate-300">
+                        <i class="fa-solid fa-arrows-split-up-and-left text-4xl mb-3 text-slate-300"></i>
+                        <p class="text-sm">Masukkan kata kunci tipe HP untuk melihat daftar persamaan anti goresnya.</p>
+                    </div>
+                `;
+                return;
+            }
+
+            const parsedQuery = parseBrandAndModel(query);
+            const matches = [];
+
+            appData.forEach(group => {
+                let isMatch = false;
+                
+                // Inspect all items in this group
+                for (let item of group.items) {
+                    const parsedItem = parseBrandAndModel(item);
+                    
+                    // Direct raw string match
+                    if (parsedItem.raw.includes(parsedQuery.raw) || parsedQuery.raw.includes(parsedItem.raw)) {
+                        isMatch = true;
+                        break;
+                    }
+
+                    // Alias/Model matching logic
+                    if (parsedQuery.brand && parsedItem.brand === parsedQuery.brand) {
+                        if (parsedQuery.model && (parsedItem.model.includes(parsedQuery.model) || parsedQuery.model.includes(parsedItem.model))) {
+                            isMatch = true;
+                            break;
+                        }
+                    } else if (!parsedQuery.brand && parsedQuery.model) {
+                        if (parsedItem.model.includes(parsedQuery.model) || parsedItem.raw.includes(parsedQuery.model)) {
+                            isMatch = true;
+                            break;
+                        }
+                    }
+                }
+
+                if (isMatch) {
+                    matches.push(group);
+                }
+            });
+
+            if (matches.length === 0) {
+                container.innerHTML = `
+                    <div class="bg-white rounded-2xl p-8 text-center border border-slate-200">
+                        <i class="fa-regular fa-face-frown text-4xl text-amber-500 mb-2"></i>
+                        <h3 class="font-bold text-slate-800 text-base mb-1">Persamaan Tidak Ditemukan</h3>
+                        <p class="text-xs text-slate-500 mb-4">Tidak ada anti gores yang terdaftar cocok dengan "${escapeHtml(query)}"</p>
+                        <button onclick="switchToInputWithQuery('${escapeHtml(query)}')" class="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg text-xs font-semibold hover:bg-indigo-700 transition-colors">
+                            <i class="fa-solid fa-plus"></i> Tambahkan Tipe Ini ke System
+                        </button>
+                    </div>
+                `;
+                return;
+            }
+
+            // Render matched result cards
+            let html = '';
+            matches.forEach(group => {
+                html += `
+                    <div class="glass-card rounded-2xl p-5 border border-indigo-100 shadow-sm relative overflow-hidden">
+                        <div class="absolute top-0 left-0 w-1.5 h-full bg-indigo-600"></div>
+                        <div class="flex justify-between items-start mb-3">
+                            <div>
+                                <span class="text-[11px] font-bold uppercase tracking-wider text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded border border-indigo-100">Grup Persamaan</span>
+                                <h3 class="text-lg font-bold text-slate-900 mt-1">${escapeHtml(group.mainType)}</h3>
+                            </div>
+                            <span class="text-xs font-medium bg-slate-100 text-slate-600 px-2.5 py-1 rounded-full">
+                                ${group.items.length} Tipe Cocok
+                            </span>
+                        </div>
+                        
+                        <p class="text-xs text-slate-500 mb-2 font-medium">Satu Anti Gores Ini Bisa Dipasang Pada Tipe HP Berikut:</p>
+                        <div class="flex flex-wrap gap-1.5">
+                            ${group.items.map(item => {
+                                const isSearched = item.toUpperCase().includes(query.toUpperCase());
+                                return `<span class="px-2.5 py-1.5 rounded-lg text-xs font-semibold ${isSearched ? 'bg-indigo-600 text-white shadow-sm' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'} transition-colors">${escapeHtml(item)}</span>`;
+                            }).join('')}
+                        </div>
+                    </div>
+                `;
+            });
+
+            container.innerHTML = html;
+        }
+
+        function switchToInputWithQuery(q) {
+            switchTab('input');
+            document.getElementById('input-main-type').value = q;
+        }
+
+        async function handleImageUpload(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            // Preview setup
+            const previewImg = document.getElementById('image-preview');
+            const previewContainer = document.getElementById('image-preview-container');
+            const placeholder = document.getElementById('image-preview-placeholder');
+            const statusText = document.getElementById('ocr-status-text');
+            const progressContainer = document.getElementById('ocr-progress-container');
+            const progressBar = document.getElementById('ocr-progress-bar');
+            const percentText = document.getElementById('ocr-percent');
+            const stepText = document.getElementById('ocr-step-name');
+
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                previewImg.src = event.target.result;
+                previewContainer.classList.remove('hidden');
+                placeholder.classList.add('hidden');
+            };
+            reader.readAsDataURL(file);
+
+            progressContainer.classList.remove('hidden');
+            statusText.innerText = 'Memulai pembacaan OCR...';
+
+            try {
+                // Initialize Tesseract worker
+                const worker = await Tesseract.createWorker('eng', 1, {
+                    logger: m => {
+                        if (m.status === 'recognizing text') {
+                            const pct = Math.round((m.progress || 0) * 100);
+                            progressBar.style.width = `${pct}%`;
+                            percentText.innerText = `${pct}%`;
+                            stepText.innerText = 'Mengekstrak Teks dari Label...';
+                        }
+                    }
+                });
+
+                const ret = await worker.recognize(file);
+                await worker.terminate();
+
+                const rawText = ret.data.text;
+                statusText.innerText = 'Pemrosesan Teks Selesai';
+                
+                // Filter and parse OCR text output
+                parseOcrTextToForm(rawText);
+                showToast('OCR Berhasil diekstrak!', 'success');
+
+            } catch (err) {
+                console.error(err);
+                statusText.innerText = 'Gagal membaca gambar.';
+                showToast('Gagal memproses gambar.', 'error');
+            } finally {
+                setTimeout(() => {
+                    progressContainer.classList.add('hidden');
+                }, 2000);
+            }
+        }
+
+        // Clean OCR results: ignore descriptions like "Bintang premium glass privacy matte" and parse HP models
+        function parseOcrTextToForm(text) {
+            if (!text) return;
+
+            // Split lines/slashes/spaces
+            let rawTokens = text.split(/[\n/,\s]+/).map(t => t.trim()).filter(Boolean);
+            let cleanedTokens = [];
+
+            for (let token of rawTokens) {
+                let lowerToken = token.toLowerCase();
+                
+                // Check if noise word
+                const isNoise = NOISE_WORDS.some(noise => lowerToken.includes(noise));
+                if (!isNoise && token.length >= 2) {
+                    cleanedTokens.push(token.toUpperCase());
+                }
+            }
+
+            if (cleanedTokens.length === 0) {
+                showToast('Tidak ada tipe HP yang terdeteksi dari foto.', 'warning');
+                return;
+            }
+
+            // Reconstruct logic: Extract Brand + Models
+            let extractedTypes = [];
+            let currentPrefix = '';
+
+            for (let i = 0; i < cleanedTokens.length; i++) {
+                let token = cleanedTokens[i];
+                
+                // Check if token contains a brand prefix or alias
+                let foundBrand = null;
+                for (let b of BRAND_ALIASES) {
+                    for (let alias of b.aliases) {
+                        if (token.startsWith(alias)) {
+                            foundBrand = alias;
+                            break;
+                        }
+                    }
+                    if (foundBrand) break;
+                }
+
+                if (foundBrand) {
+                    currentPrefix = foundBrand;
+                    extractedTypes.push(token);
+                } else {
+                    // Sub-model without prefix (e.g. "A52", "A52S")
+                    if (currentPrefix && !token.startsWith(currentPrefix)) {
+                        extractedTypes.push(`${currentPrefix} ${token}`);
+                    } else {
+                        extractedTypes.push(token);
+                    }
+                }
+            }
+
+            // Deduplicate tokens
+            extractedTypes = [...new Set(extractedTypes)];
+
+            // Fill Form: First type as Main Type, subsequent as Compatible Types
+            if (extractedTypes.length > 0) {
+                const mainTypeInput = document.getElementById('input-main-type');
+                const compatInput = document.getElementById('input-compat-types');
+
+                mainTypeInput.value = extractedTypes[0];
+
+                if (extractedTypes.length > 1) {
+                    compatInput.value = extractedTypes.slice(1).join(', ');
+                } else {
+                    compatInput.value = '';
+                }
+            }
+        }
+
+        function saveDataEntry(e) {
+            e.preventDefault();
+
+            const mainTypeVal = document.getElementById('input-main-type').value.trim();
+            const compatVal = document.getElementById('input-compat-types').value.trim();
+
+            if (!mainTypeVal) {
+                showToast('Tipe HP utama wajib diisi!', 'warning');
+                return;
+            }
+
+            // Parse companion types
+            let compatItems = compatVal ? compatVal.split(/[/,\n]+/).map(s => s.trim()).filter(Boolean) : [];
+            
+            // Re-apply prefix if child items missing explicit prefix
+            const mainBrandInfo = parseBrandAndModel(mainTypeVal);
+            if (mainBrandInfo.brand) {
+                compatItems = compatItems.map(item => {
+                    const itemBrandInfo = parseBrandAndModel(item);
+                    if (!itemBrandInfo.brand && !item.startsWith(mainBrandInfo.brand)) {
+                        return `${mainBrandInfo.brand} ${item}`;
+                    }
+                    return item;
+                });
+            }
+
+            // Combine all items into one cohesive compatibility group
+            const allItems = [...new Set([mainTypeVal.toUpperCase(), ...compatItems.map(s => s.toUpperCase())])];
+
+            // Check if group already exists or append
+            const newGroup = {
+                id: 'group_' + Date.now(),
+                mainType: mainTypeVal.toUpperCase(),
+                items: allItems
+            };
+
+            appData.unshift(newGroup);
+            saveDatabase();
+            
+            showToast('Data persamaan berhasil disimpan!', 'success');
+            clearInputForm();
+            switchTab('search');
+            quickSearch(mainTypeVal);
+        }
+
+        function clearInputForm() {
+            document.getElementById('input-form').reset();
+            document.getElementById('image-preview-container').classList.add('hidden');
+            document.getElementById('image-preview-placeholder').classList.remove('hidden');
+            document.getElementById('ocr-file-input').value = '';
+        }
+
+        function renderManageTable() {
+            const tbody = document.getElementById('database-table-body');
+            if (appData.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="4" class="py-6 text-center text-slate-400">Database kosong. Klik Reset Preset untuk memuat data awal.</td>
+                    </tr>
+                `;
+                return;
+            }
+
+            let html = '';
+            appData.forEach((group, index) => {
+                html += `
+                    <tr class="hover:bg-slate-50 transition-colors">
+                        <td class="py-3 px-4 font-semibold text-slate-500">${index + 1}</td>
+                        <td class="py-3 px-4 font-bold text-slate-800">${escapeHtml(group.mainType)}</td>
+                        <td class="py-3 px-4">
+                            <div class="flex flex-wrap gap-1">
+                                ${group.items.map(i => `<span class="bg-slate-100 text-slate-700 px-2 py-0.5 rounded text-xs font-medium border border-slate-200">${escapeHtml(i)}</span>`).join('')}
+                            </div>
+                        </td>
+                        <td class="py-3 px-4 text-center">
+                            <button onclick="deleteGroup('${group.id}')" class="text-rose-600 hover:text-rose-800 p-1.5 rounded-lg hover:bg-rose-50 transition-colors" title="Hapus Grup">
+                                <i class="fa-regular fa-trash-can"></i>
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            });
+            tbody.innerHTML = html;
+        }
+
+        function deleteGroup(id) {
+            appData = appData.filter(g => g.id !== id);
+            saveDatabase();
+            renderManageTable();
+            showToast('Grup data berhasil dihapus.', 'info');
+        }
+
+        function resetDataToDefault() {
+            appData = JSON.parse(JSON.stringify(PRESET_DATABASE));
+            saveDatabase();
+            renderManageTable();
+            showToast('Data dikembalikan ke sampel awal.', 'success');
+        }
+
+        function exportDataToTxt() {
+            if (appData.length === 0) {
+                showToast('Tidak ada data untuk diexport.', 'warning');
+                return;
+            }
+
+            let fileContent = "===================================================\n";
+            fileContent += "   DATABASE PERSAMAAN ANTI GORES (SCREEN PROTECTOR)\n";
+            fileContent += "===================================================\n\n";
+
+            appData.forEach((group, index) => {
+                fileContent += `[${index + 1}] TIPE UTAMA : ${group.mainType}\n`;
+                fileContent += `    PERSAMAAN  : ${group.items.join(" / ")}\n`;
+                fileContent += "---------------------------------------------------\n";
+            });
+
+            const blob = new Blob([fileContent], { type: 'text/plain;charset=utf-8' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = `Database_Persamaan_AntiGores_${new Date().toISOString().slice(0,10)}.txt`;
+            link.click();
+            URL.revokeObjectURL(link.href);
+
+            showToast('File TXT berhasil diunduh!', 'success');
+        }
+
+        function escapeHtml(str) {
+            return String(str)
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#039;");
+        }
+
+        function showToast(message, type = 'info') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            
+            let bgClass = 'bg-slate-800 text-white';
+            let icon = 'fa-circle-info';
+
+            if (type === 'success') {
+                bgClass = 'bg-emerald-600 text-white';
+                icon = 'fa-circle-check';
+            } else if (type === 'warning') {
+                bgClass = 'bg-amber-500 text-white';
+                icon = 'fa-triangle-exclamation';
+            } else if (type === 'error') {
+                bgClass = 'bg-rose-600 text-white';
+                icon = 'fa-circle-xmark';
+            }
+
+            toast.className = `px-4 py-3 rounded-xl shadow-lg font-medium text-xs flex items-center gap-2.5 transition-all transform translate-y-2 opacity-0 pointer-events-auto ${bgClass}`;
+            toast.innerHTML = `<i class="fa-solid ${icon} text-sm"></i> <span>${escapeHtml(message)}</span>`;
+
+            container.appendChild(toast);
+
+            setTimeout(() => {
+                toast.classList.remove('translate-y-2', 'opacity-0');
+            }, 10);
+
+            setTimeout(() => {
+                toast.classList.add('opacity-0', 'translate-y-2');
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
+    </script>
+</body>
+</html>
